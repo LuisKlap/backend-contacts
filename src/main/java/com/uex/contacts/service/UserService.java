@@ -1,0 +1,101 @@
+package com.uex.contacts.service;
+
+import com.uex.contacts.dto.user.UserResponse;
+import com.uex.contacts.entity.User;
+import com.uex.contacts.exception.ConflictException;
+import com.uex.contacts.exception.InvalidCredentialsException;
+import com.uex.contacts.exception.ResourceNotFoundException;
+import com.uex.contacts.repository.UserRepository;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class UserService implements UserDetailsService {
+
+  private final UserRepository userRepository;
+  private final PasswordEncoder passwordEncoder;
+
+  @Override
+  public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
+    User user = userRepository.findByEmail(usernameOrEmail)
+        .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado: " + usernameOrEmail));
+
+    return org.springframework.security.core.userdetails.User
+        .withUsername(user.getUsername())
+        .password(user.getPassword())
+        .authorities(user.getAuthorities())
+        .accountLocked(false)
+        .disabled(false)
+        .build();
+  }
+
+  @Transactional
+  public UserResponse createUser(User user, String rawPassword) {
+    if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+      throw new ConflictException("Email já cadastrado");
+    }
+
+    user.setPasswordHash(passwordEncoder.encode(rawPassword));
+    User saved = userRepository.save(user);
+
+    return toUserResponse(saved);
+  }
+
+  public UserResponse findById(Long id) {
+    User user = userRepository.findById(id)
+        .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+    return toUserResponse(user);
+  }
+
+  public UserResponse findCurrentUser() {
+    String email = extractAuthenticatedEmail();
+
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+    return toUserResponse(user);
+  }
+
+  @Transactional
+  public void deleteCurrentUser(String rawPassword) {
+    String email = extractAuthenticatedEmail();
+
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+    if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
+      throw new InvalidCredentialsException("Senha inválida");
+    }
+
+    userRepository.delete(user);
+    SecurityContextHolder.clearContext();
+  }
+
+  private UserResponse toUserResponse(User user) {
+    return new UserResponse(
+        user.getId(),
+        user.getFullName(),
+        user.getEmail(),
+        user.getCreatedAt());
+  }
+
+  private String extractAuthenticatedEmail() {
+    Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+    if (principal instanceof org.springframework.security.core.userdetails.UserDetails ud) {
+      return ud.getUsername();
+    } else if (principal instanceof String s) {
+      return s;
+    }
+
+    throw new ResourceNotFoundException("Usuário autenticado não identificado");
+  }
+}
