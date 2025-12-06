@@ -6,7 +6,6 @@ import com.uex.contacts.dto.auth.SignupRequest;
 import com.uex.contacts.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,9 +17,9 @@ public class AuthController {
   private final AuthService authService;
 
   @PostMapping("/signup")
-  public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request) {
-    AuthResponse response = authService.signup(request);
-    return ResponseEntity.status(HttpStatus.CREATED).body(response);
+  public void signup(@Valid @RequestBody SignupRequest request) {
+    authService.signup(request);
+    return;
   }
 
   @PostMapping("/login")

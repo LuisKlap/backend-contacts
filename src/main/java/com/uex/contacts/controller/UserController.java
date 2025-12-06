@@ -1,7 +1,6 @@
 package com.uex.contacts.controller;
 
 import com.uex.contacts.dto.user.UserResponse;
-import com.uex.contacts.entity.User;
 import com.uex.contacts.service.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -10,9 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
 
 @RestController
 @RequestMapping("/api/users")
@@ -21,23 +17,6 @@ import java.net.URI;
 public class UserController {
 
   private final UserService userService;
-
-  @PostMapping
-  public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
-    User user = User.builder()
-        .fullName(request.fullName())
-        .email(request.email())
-        .build();
-
-    UserResponse response = userService.createUser(user, request.password());
-
-    URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-        .path("/{id}")
-        .buildAndExpand(response.id())
-        .toUri();
-
-    return ResponseEntity.created(location).body(response);
-  }
 
   @GetMapping("/me")
   public ResponseEntity<UserResponse> getCurrentUser() {

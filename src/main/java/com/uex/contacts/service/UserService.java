@@ -2,7 +2,6 @@ package com.uex.contacts.service;
 
 import com.uex.contacts.dto.user.UserResponse;
 import com.uex.contacts.entity.User;
-import com.uex.contacts.exception.ConflictException;
 import com.uex.contacts.exception.InvalidCredentialsException;
 import com.uex.contacts.exception.ResourceNotFoundException;
 import com.uex.contacts.repository.UserRepository;
@@ -35,18 +34,6 @@ public class UserService implements UserDetailsService {
         .accountLocked(false)
         .disabled(false)
         .build();
-  }
-
-  @Transactional
-  public UserResponse createUser(User user, String rawPassword) {
-    if (userRepository.findByEmail(user.getEmail()).isPresent()) {
-      throw new ConflictException("Email já cadastrado");
-    }
-
-    user.setPasswordHash(passwordEncoder.encode(rawPassword));
-    User saved = userRepository.save(user);
-
-    return toUserResponse(saved);
   }
 
   public UserResponse findById(Long id) {

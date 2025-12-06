@@ -25,7 +25,7 @@ public class AuthService {
   private final AuthenticationManager authenticationManager;
   private final JwtUtil jwtUtil;
 
-  public AuthResponse signup(SignupRequest request) {
+  public void signup(SignupRequest request) {
     if (userRepository.existsByEmail(request.email())) {
       throw new ConflictException("Email already in use");
     }
@@ -35,10 +35,7 @@ public class AuthService {
     user.setEmail(request.email());
     user.setPasswordHash(passwordEncoder.encode(request.password()));
 
-    User saved = userRepository.save(user);
-
-    String token = jwtUtil.generateToken(saved.getEmail());
-    return new AuthResponse(token, null);
+    userRepository.save(user);
   }
 
   public AuthResponse login(LoginRequest request) {
