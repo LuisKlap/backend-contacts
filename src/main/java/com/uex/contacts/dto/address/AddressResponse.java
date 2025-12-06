@@ -1,11 +1,22 @@
 package com.uex.contacts.dto.address;
 
-import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public record AddressResponse(
-        @NotBlank String cep,
-        @NotBlank String state,
-        @NotBlank String city,
-        @NotBlank String street,
-        String neighborhood) {
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class AddressResponse {
+        private String cep;
+        private String logradouro;
+        private String complemento;
+        private String bairro;
+        private String localidade;
+        private String uf;
+        private Double latitude;
+        private Double longitude;
+        private String source;
 }
