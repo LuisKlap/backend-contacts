@@ -13,7 +13,7 @@
 
     <groupId>com.uex</groupId>
     <artifactId>contacts</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.0.3-SNAPSHOT</version>
     <name>contacts</name>
     <description>Contacts backend for UEX test</description>
 
@@ -68,8 +68,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
 
         <dependency>
