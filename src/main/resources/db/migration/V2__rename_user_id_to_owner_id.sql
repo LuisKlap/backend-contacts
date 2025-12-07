@@ -1,5 +1,3 @@
-ALTER TABLE contacts RENAME COLUMN user_id TO owner_id;
-
 ALTER TABLE contacts DROP CONSTRAINT IF EXISTS contacts_user_cpf_unique;
 ALTER TABLE contacts ADD CONSTRAINT uk_user_cpf UNIQUE (owner_id, cpf);
 
