@@ -15,15 +15,22 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class ContactService {
+
   private final ContactRepository contactRepository;
 
   @Transactional
   public ContactResponse createContact(User owner, ContactRequest request) {
+
+    if (owner == null || owner.getId() == null) {
+      throw new BadRequestException("Authenticated user not found. Contact must have an owner.");
+    }
+
     Long ownerId = owner.getId();
     String cleanedCpf = CpfValidator.clean(request.cpf());
 
@@ -45,6 +52,9 @@ public class ContactService {
         .street(request.street())
         .number(request.number())
         .complement(request.complement())
+        .neighborhood(request.neighborhood())
+        .latitude(new BigDecimal(String.valueOf(Math.random() * 1000)))
+        .longitude(new BigDecimal(String.valueOf(Math.random() * 1000)))
         .owner(owner)
         .build();
 
@@ -54,6 +64,11 @@ public class ContactService {
 
   @Transactional
   public ContactResponse updateContact(Long contactId, User owner, ContactRequest request) {
+
+    if (owner == null || owner.getId() == null) {
+      throw new BadRequestException("Authenticated user not found. Contact must have an owner.");
+    }
+
     Contact contact = contactRepository.findById(contactId)
         .orElseThrow(() -> new ResourceNotFoundException("Contato não encontrado"));
 
@@ -87,6 +102,10 @@ public class ContactService {
 
   @Transactional(readOnly = true)
   public Page<ContactResponse> listContacts(User owner, String filter, Pageable pageable) {
+    if (owner == null || owner.getId() == null) {
+      throw new BadRequestException("Authenticated user not found.");
+    }
+
     Long ownerId = owner.getId();
     Page<Contact> page;
 
@@ -95,10 +114,16 @@ public class ContactService {
     } else {
       String q = filter.trim();
 
-      if (q.chars().anyMatch(Character::isLetter)) {
+      boolean hasLetter = q.chars().anyMatch(Character::isLetter);
+
+      if (hasLetter) {
         page = contactRepository.findByOwnerIdAndNameContainingIgnoreCase(ownerId, q, pageable);
       } else {
-        page = contactRepository.findByOwnerIdAndCpfContaining(ownerId, q, pageable);
+        String digits = q.replaceAll("\\D", "");
+        if (digits.length() < 3) {
+          return Page.empty(pageable);
+        }
+        page = contactRepository.findByOwnerIdAndCpfDigitsContaining(ownerId, digits, pageable);
       }
     }
 
@@ -107,6 +132,11 @@ public class ContactService {
 
   @Transactional(readOnly = true)
   public ContactResponse getContact(Long contactId, User owner) {
+
+    if (owner == null || owner.getId() == null) {
+      throw new BadRequestException("Authenticated user not found.");
+    }
+
     Contact contact = contactRepository.findById(contactId)
         .orElseThrow(() -> new ResourceNotFoundException("Contato não encontrado"));
 
@@ -119,6 +149,11 @@ public class ContactService {
 
   @Transactional
   public void deleteContact(Long contactId, User owner) {
+
+    if (owner == null || owner.getId() == null) {
+      throw new BadRequestException("Authenticated user not found.");
+    }
+
     Contact contact = contactRepository.findById(contactId)
         .orElseThrow(() -> new ResourceNotFoundException("Contato não encontrado"));
 
@@ -132,6 +167,7 @@ public class ContactService {
   private ContactResponse toResponse(Contact c) {
     Double lat = c.getLatitude() != null ? c.getLatitude().doubleValue() : null;
     Double lng = c.getLongitude() != null ? c.getLongitude().doubleValue() : null;
+
     return new ContactResponse(
         c.getId(),
         c.getName(),
@@ -148,5 +184,4 @@ public class ContactService {
         c.getCreatedAt(),
         c.getUpdatedAt());
   }
-
 }

@@ -59,6 +59,9 @@ public class Contact {
   @Column(name = "longitude")
   private BigDecimal longitude;
 
+  @Column(name = "neighborhood", length = 100, nullable = false)
+  private String neighborhood;
+
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
   private OffsetDateTime createdAt;

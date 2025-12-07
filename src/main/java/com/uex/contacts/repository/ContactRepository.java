@@ -4,6 +4,8 @@ import com.uex.contacts.entity.Contact;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -22,4 +24,8 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
   Page<Contact> findByOwnerIdAndCpfContaining(Long ownerId, String cpfFragment, Pageable pageable);
 
   void deleteByOwnerId(Long ownerId);
+
+  @Query(value = "SELECT * FROM contact c WHERE c.owner_id = :ownerId AND regexp_replace(c.cpf, '\\D', '', 'g') LIKE concat('%', :digits, '%')", countQuery = "SELECT count(*) FROM contact c WHERE c.owner_id = :ownerId AND regexp_replace(c.cpf, '\\D', '', 'g') LIKE concat('%', :digits, '%')", nativeQuery = true)
+  Page<Contact> findByOwnerIdAndCpfDigitsContaining(@Param("ownerId") Long ownerId, @Param("digits") String digits,
+      Pageable pageable);
 }

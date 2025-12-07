@@ -9,8 +9,13 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Date;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Component
 public class JwtUtil {
+
+  private static final Logger logger = LoggerFactory.getLogger(JwtUtil.class);
 
   @Value("${jwt.secret}")
   private String secret;
@@ -41,9 +46,14 @@ public class JwtUtil {
     try {
       Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
       return true;
-    } catch (JwtException | IllegalArgumentException ex) {
-      return false;
+    } catch (ExpiredJwtException ex) {
+      logger.info("JWT expired: {}", ex.getMessage());
+    } catch (UnsupportedJwtException | MalformedJwtException | SignatureException ex) {
+      logger.info("JWT invalid: {}", ex.getMessage());
+    } catch (IllegalArgumentException ex) {
+      logger.info("JWT illegal arg: {}", ex.getMessage());
     }
+    return false;
   }
 
   public String getUsernameFromToken(String token) {

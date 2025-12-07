@@ -8,6 +8,8 @@ import com.uex.contacts.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
+import java.util.Optional;
+
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -40,6 +42,10 @@ public class UserService implements UserDetailsService {
     User user = userRepository.findById(id)
         .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
     return toUserResponse(user);
+  }
+
+  public Optional<User> findEntityByEmail(String email) {
+    return userRepository.findByEmail(email);
   }
 
   public UserResponse findCurrentUser() {
