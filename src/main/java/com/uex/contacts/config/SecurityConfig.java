@@ -21,6 +21,7 @@ public class SecurityConfig {
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
     http
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .csrf(csrf -> csrf.disable())
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
@@ -31,13 +32,29 @@ public class SecurityConfig {
                 "/v3/api-docs/**",
                 "/v3/api-docs.yaml",
                 "/health",
-                "/actuator/health")
+                "/actuator/health",
+                "/error")
             .permitAll()
             .anyRequest().authenticated());
 
     http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
+  }
+
+  @Bean
+  public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+    org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+    configuration.setAllowedOriginPatterns(java.util.List.of("*"));
+    configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+    configuration.setAllowedHeaders(java.util.List.of("*"));
+    configuration.setAllowCredentials(true);
+    configuration.setExposedHeaders(java.util.List.of("Authorization"));
+    configuration.setMaxAge(3600L);
+
+    org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
   }
 
   @Bean

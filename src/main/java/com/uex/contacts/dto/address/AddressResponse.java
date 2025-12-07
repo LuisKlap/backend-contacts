@@ -19,4 +19,6 @@ public class AddressResponse {
         private Double latitude;
         private Double longitude;
         private String source;
+        private Boolean exact;
+        private String display;
 }
