@@ -25,15 +25,13 @@ public class SecurityConfig {
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(
-                "/api/auth/login",
-                "/api/auth/signup",
+                "/api/auth/**",
                 "/swagger-ui/**",
                 "/swagger-ui.html",
                 "/v3/api-docs/**",
                 "/v3/api-docs.yaml",
                 "/health",
-                "/actuator/health",
-                "/error")
+                "/actuator/health")
             .permitAll()
             .anyRequest().authenticated());
 
@@ -51,5 +49,4 @@ public class SecurityConfig {
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
   }
-
 }
