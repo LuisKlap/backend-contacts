@@ -6,23 +6,33 @@ import com.uex.contacts.entity.Contact;
 import com.uex.contacts.entity.User;
 import com.uex.contacts.exception.BadRequestException;
 import com.uex.contacts.exception.ConflictException;
+import com.uex.contacts.exception.ExternalServiceException;
 import com.uex.contacts.exception.ResourceNotFoundException;
+import com.uex.contacts.integration.GoogleGeocodingClient;
 import com.uex.contacts.repository.ContactRepository;
 import com.uex.contacts.util.CpfValidator;
 import lombok.RequiredArgsConstructor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class ContactService {
 
+  private static final Logger logger = LoggerFactory.getLogger(ContactService.class);
+
   private final ContactRepository contactRepository;
+  private final GoogleGeocodingClient googleGeocodingClient;
 
   @Transactional
   public ContactResponse createContact(User owner, ContactRequest request) {
@@ -42,7 +52,7 @@ public class ContactService {
       throw new ConflictException("CPF já cadastrado para este usuário");
     }
 
-    Contact contact = Contact.builder()
+    Contact.ContactBuilder builder = Contact.builder()
         .name(request.name())
         .cpf(cleanedCpf)
         .phone(request.phone())
@@ -53,10 +63,24 @@ public class ContactService {
         .number(request.number())
         .complement(request.complement())
         .neighborhood(request.neighborhood())
-        .latitude(new BigDecimal(String.valueOf(Math.random() * 1000)))
-        .longitude(new BigDecimal(String.valueOf(Math.random() * 1000)))
-        .owner(owner)
-        .build();
+        .owner(owner);
+
+    // tenta buscar latitude/longitude via Google Geocoding
+    try {
+      String fullAddress = buildFullAddressForGoogle(request);
+      Optional<GoogleGeocodingClient.Location> maybeLoc = googleGeocodingClient.geocode(fullAddress);
+      if (maybeLoc.isPresent()) {
+        GoogleGeocodingClient.Location l = maybeLoc.get();
+        if (l.lat != null && l.lng != null) {
+          builder.latitude(BigDecimal.valueOf(l.lat).setScale(8, RoundingMode.HALF_UP));
+          builder.longitude(BigDecimal.valueOf(l.lng).setScale(8, RoundingMode.HALF_UP));
+        }
+      }
+    } catch (ExternalServiceException ex) {
+      logger.info("External exception: {}", ex.getMessage());
+    }
+
+    Contact contact = builder.build();
 
     Contact saved = contactRepository.save(contact);
     return toResponse(saved);
@@ -95,6 +119,23 @@ public class ContactService {
     contact.setStreet(request.street());
     contact.setNumber(request.number());
     contact.setComplement(request.complement());
+    contact.setNeighborhood(request.neighborhood());
+
+    try {
+      if (hasEnoughForGeocode(request)) {
+        String fullAddress = buildFullAddressForGoogle(request);
+        Optional<GoogleGeocodingClient.Location> maybeLoc = googleGeocodingClient.geocode(fullAddress);
+        if (maybeLoc.isPresent()) {
+          GoogleGeocodingClient.Location l = maybeLoc.get();
+          if (l.lat != null && l.lng != null) {
+            contact.setLatitude(BigDecimal.valueOf(l.lat).setScale(8, RoundingMode.HALF_UP));
+            contact.setLongitude(BigDecimal.valueOf(l.lng).setScale(8, RoundingMode.HALF_UP));
+          }
+        }
+      }
+    } catch (ExternalServiceException ex) {
+      logger.info("External exception: {}", ex.getMessage());
+    }
 
     Contact updated = contactRepository.save(contact);
     return toResponse(updated);
@@ -183,5 +224,26 @@ public class ContactService {
         lng,
         c.getCreatedAt(),
         c.getUpdatedAt());
+  }
+
+  // monta a string que será enviada ao Google Geocoding
+  private String buildFullAddressForGoogle(ContactRequest request) {
+    StringBuilder sb = new StringBuilder();
+    if (request.street() != null && !request.street().isBlank())
+      sb.append(request.street());
+    if (request.number() != null && !request.number().isBlank())
+      sb.append(", ").append(request.number());
+    if (request.city() != null && !request.city().isBlank())
+      sb.append(", ").append(request.city());
+    if (request.state() != null && !request.state().isBlank())
+      sb.append(", ").append(request.state());
+    sb.append(", Brasil");
+    return sb.toString();
+  }
+
+  private boolean hasEnoughForGeocode(ContactRequest request) {
+    return (request.street() != null && !request.street().isBlank())
+        && (request.city() != null && !request.city().isBlank())
+        && (request.state() != null && !request.state().isBlank());
   }
 }

@@ -5,17 +5,20 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.uex.contacts.config.AddressLookupProperties;
 import com.uex.contacts.exception.ExternalServiceException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
 public class GoogleGeocodingClient {
+
   private final AddressLookupProperties props;
-  private final RestTemplate restTemplate = new RestTemplate();
+  private final RestTemplate restTemplate;
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   static class Geometry {
@@ -43,28 +46,44 @@ public class GoogleGeocodingClient {
   }
 
   public Optional<Location> geocode(String query) {
-    if (props.getGoogleApiKey() == null || props.getGoogleApiKey().isBlank()) {
+    if (props.getGoogleApiKey() == null || props.getGoogleApiKey().isBlank() || query == null || query.isBlank()) {
       return Optional.empty();
     }
 
     try {
-      String url = String.format("%s?address=%s&key=%s",
-          props.getGoogleGeocodingUrl(),
-          encode(query),
-          props.getGoogleApiKey());
-      ResponseEntity<GeocodingResponse> resp = restTemplate.getForEntity(url, GeocodingResponse.class);
+      // Use fromUriString para evitar problemas com versões ou caracteres
+      URI uri = UriComponentsBuilder
+          .fromUriString(props.getGoogleGeocodingUrl())
+          .queryParam("address", query)
+          .queryParam("key", props.getGoogleApiKey())
+          .build()
+          .encode()
+          .toUri();
+
+      ResponseEntity<GeocodingResponse> resp = restTemplate.getForEntity(uri, GeocodingResponse.class);
       GeocodingResponse body = resp.getBody();
-      if (body == null || !"OK".equals(body.status) || body.results == null || body.results.length == 0) {
+
+      if (body == null) {
         return Optional.empty();
       }
-      Location loc = body.results[0].geometry.location;
-      return Optional.ofNullable(loc);
+
+      switch (body.status) {
+        case "OK":
+          if (body.results != null && body.results.length > 0 && body.results[0].geometry != null) {
+            Location loc = body.results[0].geometry.location;
+            return Optional.ofNullable(loc);
+          } else {
+            return Optional.empty();
+          }
+        case "ZERO_RESULTS":
+          return Optional.empty();
+        default:
+          throw new ExternalServiceException("Google Geocoding returned status: " + body.status);
+      }
+    } catch (ExternalServiceException e) {
+      throw e;
     } catch (Exception e) {
       throw new ExternalServiceException("Google Geocoding lookup failed", e);
     }
-  }
-
-  private String encode(String s) {
-    return s == null ? "" : s.replace(" ", "+");
   }
 }
