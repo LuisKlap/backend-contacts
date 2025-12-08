@@ -100,6 +100,7 @@ class ContactControllerTest {
                                 "Av. Paulista",
                                 "1000",
                                 "Apto 101",
+                                "Bela Vista",
                                 -23.561684,
                                 -46.655981,
                                 OffsetDateTime.now(),
@@ -197,6 +198,7 @@ class ContactControllerTest {
                                 "Av. Paulista",
                                 "1000",
                                 "Apto 102",
+                                "Bela Vista",
                                 -23.561684,
                                 -46.655981,
                                 OffsetDateTime.now(),
@@ -252,12 +254,12 @@ class ContactControllerTest {
 
                 ContactResponse contact1 = new ContactResponse(
                                 1L, "Jane Smith", "91210822008", "11987654321",
-                                "01310-100", "SP", "São Paulo", "Av. Paulista", "1000", "Apto 101",
+                                "01310-100", "SP", "São Paulo", "Av. Paulista", "1000", "Apto 101", "Bela Vista",
                                 -23.561684, -46.655981, OffsetDateTime.now(), OffsetDateTime.now());
 
                 ContactResponse contact2 = new ContactResponse(
                                 2L, "John Doe", "12345678900", "11987654322",
-                                "01310-200", "SP", "São Paulo", "Av. Brigadeiro", "2000", null,
+                                "01310-200", "SP", "São Paulo", "Av. Brigadeiro", "2000", null, "Centro",
                                 -23.561684, -46.655981, OffsetDateTime.now(), OffsetDateTime.now());
 
                 Page<ContactResponse> page = new PageImpl<>(List.of(contact1, contact2), PageRequest.of(0, 10), 2);
@@ -284,7 +286,7 @@ class ContactControllerTest {
 
                 ContactResponse contact1 = new ContactResponse(
                                 1L, "Jane Smith", "91210822008", "11987654321",
-                                "01310-100", "SP", "São Paulo", "Av. Paulista", "1000", "Apto 101",
+                                "01310-100", "SP", "São Paulo", "Av. Paulista", "1000", "Apto 101", "Bela Vista",
                                 -23.561684, -46.655981, OffsetDateTime.now(), OffsetDateTime.now());
 
                 Page<ContactResponse> page = new PageImpl<>(List.of(contact1), PageRequest.of(0, 10), 1);
@@ -311,7 +313,7 @@ class ContactControllerTest {
 
                 ContactResponse response = new ContactResponse(
                                 contactId, "Jane Smith", "91210822008", "11987654321",
-                                "01310-100", "SP", "São Paulo", "Av. Paulista", "1000", "Apto 101",
+                                "01310-100", "SP", "São Paulo", "Av. Paulista", "1000", "Apto 101", "Bela Vista",
                                 -23.561684, -46.655981, OffsetDateTime.now(), OffsetDateTime.now());
 
                 when(contactService.getContact(eq(contactId), any(User.class))).thenReturn(response);

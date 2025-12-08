@@ -223,6 +223,7 @@ public class ContactService {
         c.getStreet(),
         c.getNumber(),
         c.getComplement(),
+        c.getNeighborhood(),
         lat,
         lng,
         c.getCreatedAt(),
