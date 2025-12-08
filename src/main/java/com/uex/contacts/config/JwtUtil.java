@@ -2,6 +2,7 @@ package com.uex.contacts.config;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SecurityException;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -48,7 +49,7 @@ public class JwtUtil {
       return true;
     } catch (ExpiredJwtException ex) {
       logger.info("JWT expired: {}", ex.getMessage());
-    } catch (UnsupportedJwtException | MalformedJwtException | SignatureException ex) {
+    } catch (UnsupportedJwtException | MalformedJwtException | SecurityException ex) {
       logger.info("JWT invalid: {}", ex.getMessage());
     } catch (IllegalArgumentException ex) {
       logger.info("JWT illegal arg: {}", ex.getMessage());

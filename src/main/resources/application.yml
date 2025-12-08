@@ -29,6 +29,9 @@ jwt:
   secret: "troque-por-um-secret-real"
   expiration: 3600000
 
+cors:
+  allowed-origins: "https://front-contacts.vercel.app,http://localhost:3000,http://localhost:4200"
+
 springdoc:
   api-docs:
     path: /v3/api-docs

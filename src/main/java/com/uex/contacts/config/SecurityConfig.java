@@ -45,11 +45,17 @@ public class SecurityConfig {
   @Bean
   public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
     org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
-    configuration.setAllowedOriginPatterns(java.util.List.of("*"));
+
+    // Permite origens específicas
+    configuration.setAllowedOrigins(java.util.List.of(
+        "https://front-contacts.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:4200"));
+
     configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
     configuration.setAllowedHeaders(java.util.List.of("*"));
     configuration.setAllowCredentials(true);
-    configuration.setExposedHeaders(java.util.List.of("Authorization"));
+    configuration.setExposedHeaders(java.util.List.of("Authorization", "Content-Type"));
     configuration.setMaxAge(3600L);
 
     org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
