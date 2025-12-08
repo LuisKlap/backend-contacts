@@ -32,9 +32,16 @@ public final class PhoneUtils {
   public static boolean isValidBrazilianPhone(String phone) {
     String nat = normalizeToNational(phone);
     if (nat.length() == 10) {
-      return validDdd(nat.substring(0, 2)) && isAllDigits(nat);
+      if (!validDdd(nat.substring(0, 2)) || !isAllDigits(nat)) {
+        return false;
+      }
+      char firstDigit = nat.charAt(2);
+      return firstDigit >= '2' && firstDigit <= '5';
     } else if (nat.length() == 11) {
-      return validDdd(nat.substring(0, 2)) && isAllDigits(nat);
+      if (!validDdd(nat.substring(0, 2)) || !isAllDigits(nat)) {
+        return false;
+      }
+      return nat.charAt(2) == '9';
     }
     return false;
   }

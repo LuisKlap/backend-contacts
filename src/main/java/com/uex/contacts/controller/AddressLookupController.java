@@ -1,6 +1,7 @@
 package com.uex.contacts.controller;
 
 import com.uex.contacts.dto.address.AddressResponse;
+import com.uex.contacts.exception.BadRequestException;
 import com.uex.contacts.service.AddressLookupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -39,11 +40,20 @@ public class AddressLookupController {
   @GetMapping("/search")
   @Operation(summary = "Busca endereços por UF + Cidade + Logradouro (via ViaCEP)")
   public ResponseEntity<List<AddressResponse>> search(
-      @Parameter(description = "UF do estado", required = true) @RequestParam String uf,
+      @Parameter(description = "UF do estado", required = true) @RequestParam(required = false) String uf,
 
-      @Parameter(description = "Nome da cidade", required = true) @RequestParam String city,
+      @Parameter(description = "Nome da cidade", required = true) @RequestParam(required = false) String city,
 
-      @Parameter(description = "Nome do logradouro (mínimo 3 caracteres)", required = true) @RequestParam String street) {
+      @Parameter(description = "Nome do logradouro (mínimo 3 caracteres)", required = true) @RequestParam(required = false) String street) {
+    if (uf == null || uf.isBlank()) {
+      throw new BadRequestException("Parâmetro 'uf' é obrigatório");
+    }
+    if (city == null || city.isBlank()) {
+      throw new BadRequestException("Parâmetro 'city' é obrigatório");
+    }
+    if (street == null || street.isBlank()) {
+      throw new BadRequestException("Parâmetro 'street' é obrigatório");
+    }
     List<AddressResponse> results = addressLookupService.searchByUfCityStreet(uf, city, street);
     return ResponseEntity.ok(results);
   }
@@ -51,15 +61,24 @@ public class AddressLookupController {
   @GetMapping("/geocode")
   @Operation(summary = "Obtém latitude e longitude de um endereço (via Google Geocoding)")
   public ResponseEntity<AddressResponse> geocode(
-      @Parameter(description = "Nome do logradouro", required = true) @RequestParam String street,
+      @Parameter(description = "Nome do logradouro", required = true) @RequestParam(required = false) String street,
 
       @Parameter(description = "Número do endereço", required = false) @RequestParam(required = false) String number,
 
-      @Parameter(description = "Nome da cidade", required = true) @RequestParam String city,
+      @Parameter(description = "Nome da cidade", required = true) @RequestParam(required = false) String city,
 
-      @Parameter(description = "UF do estado", required = true) @RequestParam String state,
+      @Parameter(description = "UF do estado", required = true) @RequestParam(required = false) String state,
 
       @Parameter(description = "CEP", required = false) @RequestParam(required = false) String cep) {
+    if (street == null || street.isBlank()) {
+      throw new BadRequestException("Parâmetro 'street' é obrigatório");
+    }
+    if (city == null || city.isBlank()) {
+      throw new BadRequestException("Parâmetro 'city' é obrigatório");
+    }
+    if (state == null || state.isBlank()) {
+      throw new BadRequestException("Parâmetro 'state' é obrigatório");
+    }
     AddressResponse result = addressLookupService.geocodeAddress(street, number, city, state, cep);
     return ResponseEntity.ok(result);
   }
