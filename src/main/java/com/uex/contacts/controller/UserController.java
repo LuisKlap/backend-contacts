@@ -1,5 +1,6 @@
 package com.uex.contacts.controller;
 
+import com.uex.contacts.dto.user.UpdateUserRequest;
 import com.uex.contacts.dto.user.UserResponse;
 import com.uex.contacts.service.UserService;
 import jakarta.validation.Valid;
@@ -27,6 +28,12 @@ public class UserController {
   @GetMapping("/{id}")
   public ResponseEntity<UserResponse> getById(@PathVariable Long id) {
     UserResponse response = userService.findById(id);
+    return ResponseEntity.ok(response);
+  }
+
+  @PutMapping
+  public ResponseEntity<UserResponse> updateCurrentUser(@Valid @RequestBody UpdateUserRequest request) {
+    UserResponse response = userService.updateCurrentUser(request);
     return ResponseEntity.ok(response);
   }
 

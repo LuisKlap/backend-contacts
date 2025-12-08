@@ -1,7 +1,9 @@
 package com.uex.contacts.service;
 
+import com.uex.contacts.dto.user.UpdateUserRequest;
 import com.uex.contacts.dto.user.UserResponse;
 import com.uex.contacts.entity.User;
+import com.uex.contacts.exception.ConflictException;
 import com.uex.contacts.exception.InvalidCredentialsException;
 import com.uex.contacts.exception.ResourceNotFoundException;
 import com.uex.contacts.repository.UserRepository;
@@ -55,6 +57,37 @@ public class UserService implements UserDetailsService {
         .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
 
     return toUserResponse(user);
+  }
+
+  @Transactional
+  public UserResponse updateCurrentUser(UpdateUserRequest request) {
+    String email = extractAuthenticatedEmail();
+
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+    // Se está tentando alterar a senha, valida a senha atual
+    if (request.password() != null && !request.password().isBlank()) {
+      if (request.currentPassword() == null || request.currentPassword().isBlank()) {
+        throw new InvalidCredentialsException("Senha atual é obrigatória para alterar a senha");
+      }
+      if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+        throw new InvalidCredentialsException("Senha atual inválida");
+      }
+      user.setPasswordHash(passwordEncoder.encode(request.password()));
+    }
+
+    // Verifica se o email já está em uso por outro usuário
+    if (!user.getEmail().equals(request.email()) && userRepository.existsByEmail(request.email())) {
+      throw new ConflictException("Email já está em uso");
+    }
+
+    // Atualiza os dados
+    user.setFullName(request.fullName());
+    user.setEmail(request.email());
+
+    User updatedUser = userRepository.save(user);
+    return toUserResponse(updatedUser);
   }
 
   @Transactional
