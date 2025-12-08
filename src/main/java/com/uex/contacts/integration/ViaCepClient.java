@@ -8,9 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
@@ -55,11 +54,20 @@ public class ViaCepClient {
 
   public List<ViaCepAddress> searchByUfCityStreet(String uf, String city, String street) {
     try {
-      String url = String.format("%s/%s/%s/%s/json/",
-          props.getViacepBaseUrl(),
-          encodeSegment(uf),
-          encodeSegment(city),
-          encodeSegment(street));
+      // Validação de nulos e trim
+      String cleanUf = (uf != null) ? uf.trim() : "";
+      String cleanCity = (city != null) ? city.trim() : "";
+      String cleanStreet = (street != null) ? street.trim() : "";
+
+      // Usar UriComponentsBuilder para evitar double encoding
+      // RestTemplate não faz encoding adicional quando a URL já está construída
+      // corretamente
+      String url = UriComponentsBuilder
+          .fromUriString(props.getViacepBaseUrl())
+          .path("/{uf}/{city}/{street}/json/")
+          .buildAndExpand(cleanUf, cleanCity, cleanStreet)
+          .toUriString();
+
       ResponseEntity<ViaCepAddress[]> resp = restTemplate.getForEntity(url, ViaCepAddress[].class);
       ViaCepAddress[] body = resp.getBody();
       if (body == null)
@@ -68,15 +76,5 @@ public class ViaCepClient {
     } catch (Exception e) {
       throw new ExternalServiceException("ViaCep lookup failed", e);
     }
-  }
-
-  private String encodeSegment(String s) {
-    if (s == null)
-      return "";
-    // Remove espaços no início e fim antes de encodar
-    s = s.trim();
-    // Usa encodePathSegment para codificar corretamente espaços e caracteres
-    // especiais
-    return UriUtils.encodePathSegment(s, StandardCharsets.UTF_8);
   }
 }

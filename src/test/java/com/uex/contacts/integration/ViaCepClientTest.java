@@ -114,7 +114,7 @@ class ViaCepClientTest {
     };
 
     when(restTemplate.getForEntity(
-        eq("https://viacep.com.br/ws/SP/S%C3%A3o%20Paulo/Paulista/json/"),
+        any(String.class),
         eq(ViaCepClient.ViaCepAddress[].class)))
         .thenReturn(ResponseEntity.ok(addresses));
 
