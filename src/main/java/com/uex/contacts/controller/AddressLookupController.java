@@ -11,25 +11,56 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Controller para intermediar consultas ao ViaCEP e Google Geocoding.
+ * 
+ * Seguindo o escopo do teste:
+ * - Frontend não pode acessar ViaCEP diretamente
+ * - Backend fornece endpoint para consultar CEP
+ * - Backend fornece endpoint para buscar endereços por UF/cidade/rua
+ * - Backend fornece endpoint para obter coordenadas geográficas
+ */
 @RestController
 @RequestMapping("/api/address")
 @RequiredArgsConstructor
-@Tag(name = "Address Lookup", description = "Endpoints para busca de endereços")
+@Tag(name = "Address Lookup", description = "Endpoints para busca de endereços via ViaCEP e geocoding")
 public class AddressLookupController {
 
   private final AddressLookupService addressLookupService;
 
-  @GetMapping("/lookup")
-  @Operation(summary = "Busca endereços por CEP, logradouro ou texto genérico")
-  public ResponseEntity<List<AddressResponse>> lookup(
-      @Parameter(description = "Termo de busca: CEP, nome de rua ou texto genérico", required = true) @RequestParam String q,
+  @GetMapping("/cep/{cep}")
+  @Operation(summary = "Busca endereço completo por CEP (via ViaCEP)")
+  public ResponseEntity<AddressResponse> findByCep(
+      @Parameter(description = "CEP no formato 12345678 ou 12345-678", required = true) @PathVariable String cep) {
+    AddressResponse result = addressLookupService.findByCep(cep);
+    return ResponseEntity.ok(result);
+  }
 
-      @Parameter(description = "UF (opcional, ajuda a refinar buscas por rua)", required = false) @RequestParam(required = false) String uf,
+  @GetMapping("/search")
+  @Operation(summary = "Busca endereços por UF + Cidade + Logradouro (via ViaCEP)")
+  public ResponseEntity<List<AddressResponse>> search(
+      @Parameter(description = "UF do estado", required = true) @RequestParam String uf,
 
-      @Parameter(description = "Cidade (opcional, ajuda a refinar buscas por rua)", required = false) @RequestParam(required = false) String city,
+      @Parameter(description = "Nome da cidade", required = true) @RequestParam String city,
 
-      @Parameter(description = "Número máximo de sugestões (padrão: 5)", required = false) @RequestParam(required = false, defaultValue = "5") Integer limit) {
-    List<AddressResponse> results = addressLookupService.search(q, uf, city, limit);
+      @Parameter(description = "Nome do logradouro (mínimo 3 caracteres)", required = true) @RequestParam String street) {
+    List<AddressResponse> results = addressLookupService.searchByUfCityStreet(uf, city, street);
     return ResponseEntity.ok(results);
+  }
+
+  @GetMapping("/geocode")
+  @Operation(summary = "Obtém latitude e longitude de um endereço (via Google Geocoding)")
+  public ResponseEntity<AddressResponse> geocode(
+      @Parameter(description = "Nome do logradouro", required = true) @RequestParam String street,
+
+      @Parameter(description = "Número do endereço", required = false) @RequestParam(required = false) String number,
+
+      @Parameter(description = "Nome da cidade", required = true) @RequestParam String city,
+
+      @Parameter(description = "UF do estado", required = true) @RequestParam String state,
+
+      @Parameter(description = "CEP", required = false) @RequestParam(required = false) String cep) {
+    AddressResponse result = addressLookupService.geocodeAddress(street, number, city, state, cep);
+    return ResponseEntity.ok(result);
   }
 }

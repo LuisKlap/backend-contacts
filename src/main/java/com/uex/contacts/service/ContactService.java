@@ -8,7 +8,7 @@ import com.uex.contacts.exception.BadRequestException;
 import com.uex.contacts.exception.ConflictException;
 import com.uex.contacts.exception.ExternalServiceException;
 import com.uex.contacts.exception.ResourceNotFoundException;
-import com.uex.contacts.integration.GoogleGeocodingClient;
+import com.uex.contacts.dto.address.AddressResponse;
 import com.uex.contacts.repository.ContactRepository;
 import com.uex.contacts.util.CpfValidator;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +32,7 @@ public class ContactService {
   private static final Logger logger = LoggerFactory.getLogger(ContactService.class);
 
   private final ContactRepository contactRepository;
-  private final GoogleGeocodingClient googleGeocodingClient;
+  private final AddressLookupService addressLookupService;
 
   @Transactional
   public ContactResponse createContact(User owner, ContactRequest request) {
@@ -65,19 +65,21 @@ public class ContactService {
         .neighborhood(request.neighborhood())
         .owner(owner);
 
-    // tenta buscar latitude/longitude via Google Geocoding
+    // Tenta buscar latitude/longitude via Google Geocoding
     try {
-      String fullAddress = buildFullAddressForGoogle(request);
-      Optional<GoogleGeocodingClient.Location> maybeLoc = googleGeocodingClient.geocode(fullAddress);
-      if (maybeLoc.isPresent()) {
-        GoogleGeocodingClient.Location l = maybeLoc.get();
-        if (l.lat != null && l.lng != null) {
-          builder.latitude(BigDecimal.valueOf(l.lat).setScale(8, RoundingMode.HALF_UP));
-          builder.longitude(BigDecimal.valueOf(l.lng).setScale(8, RoundingMode.HALF_UP));
-        }
+      AddressResponse geoResult = addressLookupService.geocodeAddress(
+          request.street(),
+          request.number(),
+          request.city(),
+          request.state(),
+          request.cep());
+
+      if (geoResult.getLatitude() != null && geoResult.getLongitude() != null) {
+        builder.latitude(BigDecimal.valueOf(geoResult.getLatitude()).setScale(8, RoundingMode.HALF_UP));
+        builder.longitude(BigDecimal.valueOf(geoResult.getLongitude()).setScale(8, RoundingMode.HALF_UP));
       }
     } catch (ExternalServiceException ex) {
-      logger.info("External exception: {}", ex.getMessage());
+      logger.warn("Não foi possível obter coordenadas para o endereço: {}", ex.getMessage());
     }
 
     Contact contact = builder.build();
@@ -123,18 +125,20 @@ public class ContactService {
 
     try {
       if (hasEnoughForGeocode(request)) {
-        String fullAddress = buildFullAddressForGoogle(request);
-        Optional<GoogleGeocodingClient.Location> maybeLoc = googleGeocodingClient.geocode(fullAddress);
-        if (maybeLoc.isPresent()) {
-          GoogleGeocodingClient.Location l = maybeLoc.get();
-          if (l.lat != null && l.lng != null) {
-            contact.setLatitude(BigDecimal.valueOf(l.lat).setScale(8, RoundingMode.HALF_UP));
-            contact.setLongitude(BigDecimal.valueOf(l.lng).setScale(8, RoundingMode.HALF_UP));
-          }
+        AddressResponse geoResult = addressLookupService.geocodeAddress(
+            request.street(),
+            request.number(),
+            request.city(),
+            request.state(),
+            request.cep());
+
+        if (geoResult.getLatitude() != null && geoResult.getLongitude() != null) {
+          contact.setLatitude(BigDecimal.valueOf(geoResult.getLatitude()).setScale(8, RoundingMode.HALF_UP));
+          contact.setLongitude(BigDecimal.valueOf(geoResult.getLongitude()).setScale(8, RoundingMode.HALF_UP));
         }
       }
     } catch (ExternalServiceException ex) {
-      logger.info("External exception: {}", ex.getMessage());
+      logger.warn("Não foi possível obter coordenadas para o endereço: {}", ex.getMessage());
     }
 
     Contact updated = contactRepository.save(contact);
@@ -224,21 +228,6 @@ public class ContactService {
         lng,
         c.getCreatedAt(),
         c.getUpdatedAt());
-  }
-
-  // monta a string que será enviada ao Google Geocoding
-  private String buildFullAddressForGoogle(ContactRequest request) {
-    StringBuilder sb = new StringBuilder();
-    if (request.street() != null && !request.street().isBlank())
-      sb.append(request.street());
-    if (request.number() != null && !request.number().isBlank())
-      sb.append(", ").append(request.number());
-    if (request.city() != null && !request.city().isBlank())
-      sb.append(", ").append(request.city());
-    if (request.state() != null && !request.state().isBlank())
-      sb.append(", ").append(request.state());
-    sb.append(", Brasil");
-    return sb.toString();
   }
 
   private boolean hasEnoughForGeocode(ContactRequest request) {

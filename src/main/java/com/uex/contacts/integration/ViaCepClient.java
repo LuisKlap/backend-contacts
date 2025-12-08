@@ -8,7 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
@@ -69,6 +71,12 @@ public class ViaCepClient {
   }
 
   private String encodeSegment(String s) {
-    return s == null ? "" : s.replace(" ", "%20");
+    if (s == null)
+      return "";
+    // Remove espaços no início e fim antes de encodar
+    s = s.trim();
+    // Usa encodePathSegment para codificar corretamente espaços e caracteres
+    // especiais
+    return UriUtils.encodePathSegment(s, StandardCharsets.UTF_8);
   }
 }

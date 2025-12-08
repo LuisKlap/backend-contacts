@@ -5,6 +5,7 @@ import com.uex.contacts.integration.ViaCepClient;
 import com.uex.contacts.dto.address.AddressResponse;
 import com.uex.contacts.exception.ExternalServiceException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -13,6 +14,17 @@ import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * Serviço de busca de endereços via ViaCEP e geocodificação via Google Maps.
+ * 
+ * Seguindo o escopo do teste:
+ * - Backend intermediar consultas ao ViaCEP (frontend não pode acessar
+ * diretamente)
+ * - Backend usar Google Maps para obter latitude/longitude ao cadastrar
+ * contatos
+ * - Sistema de sugestão de endereços deve ser implementado no frontend
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AddressLookupService {
@@ -22,171 +34,125 @@ public class AddressLookupService {
 
   private static final Pattern CEP_PATTERN = Pattern.compile("^\\d{5}-?\\d{3}$");
 
-  @Cacheable(value = "address-lookup", key = "T(java.util.Objects).hash(#q, #uf, #city, #limit)")
-  public List<AddressResponse> search(String q, String uf, String city, int limit) {
-    q = sanitize(q);
-    uf = sanitizeUf(uf);
-    city = sanitize(city);
-
-    if (!StringUtils.hasLength(q) || q.length() < 3) {
-      return List.of();
-    }
-
-    // 1. DETECTAR CEP EXATO
-    if (isCep(q)) {
-      return searchByCep(q, limit);
-    }
-
-    // 2. BUSCA POR UF + CIDADE + RUA (ViaCep)
-    if (StringUtils.hasLength(uf) && StringUtils.hasLength(city)) {
-      return searchByUfCityStreet(uf, city, q, limit);
-    }
-
-    // 3. FALLBACK: BUSCA GENÉRICA COM GOOGLE
-    return searchWithGoogle(q, city, uf, limit);
-  }
-
   /**
-   * 1. Busca direta por CEP no ViaCep + enriquecimento com Google
+   * Busca endereço por CEP usando ViaCEP.
+   * Retorna endereço completo sem coordenadas (geocoding é feito apenas no
+   * cadastro).
    */
-  private List<AddressResponse> searchByCep(String cep, int limit) {
+  @Cacheable(value = "address-by-cep", key = "#cep")
+  public AddressResponse findByCep(String cep) {
+    String cleanCep = sanitize(cep);
+
+    if (!isCep(cleanCep)) {
+      throw new ExternalServiceException("CEP inválido");
+    }
+
+    log.debug("Searching address by CEP: {}", cleanCep);
+
     try {
-      String cleanCep = cep.replaceAll("-", "");
+      cleanCep = cleanCep.replaceAll("-", "");
       ViaCepClient.ViaCepAddress result = viaCepClient.findByCep(cleanCep);
 
       if (result == null || result.erro != null) {
+        throw new ExternalServiceException("CEP não encontrado");
+      }
+
+      return mapViaCepToResponse(result);
+
+    } catch (ExternalServiceException e) {
+      log.error("Error searching CEP {}: {}", cleanCep, e.getMessage());
+      throw e;
+    }
+  }
+
+  /**
+   * Busca endereços por UF + Cidade + Logradouro usando ViaCEP.
+   * Usado para ajudar o usuário quando não sabe o CEP completo.
+   */
+  @Cacheable(value = "address-search", key = "#uf + '-' + #city + '-' + #street")
+  public List<AddressResponse> searchByUfCityStreet(String uf, String city, String street) {
+    uf = sanitizeUf(uf);
+    city = sanitize(city);
+    street = sanitize(street);
+
+    if (!StringUtils.hasLength(uf) || !StringUtils.hasLength(city) || !StringUtils.hasLength(street)) {
+      throw new ExternalServiceException("UF, cidade e logradouro são obrigatórios");
+    }
+
+    if (street.length() < 3) {
+      throw new ExternalServiceException("Logradouro deve ter no mínimo 3 caracteres");
+    }
+
+    log.debug("Searching addresses: uf={}, city={}, street={}", uf, city, street);
+
+    try {
+      List<ViaCepClient.ViaCepAddress> results = viaCepClient.searchByUfCityStreet(uf, city, street);
+
+      if (results.isEmpty()) {
         return List.of();
       }
 
-      AddressResponse response = mapViaCepToResponse(result, true);
-
-      // Enriquecer com lat/lng do Google
-      enrichWithGoogleCoordinates(response);
-
-      return List.of(response);
-
-    } catch (ExternalServiceException e) {
-      return List.of();
-    }
-  }
-
-  /**
-   * 2. Busca por UF + Cidade + Logradouro (ViaCep search)
-   */
-  private List<AddressResponse> searchByUfCityStreet(String uf, String city, String street, int limit) {
-    try {
-      List<ViaCepClient.ViaCepAddress> viaCepResults = viaCepClient.searchByUfCityStreet(uf, city, street);
-
-      List<AddressResponse> responses = viaCepResults.stream()
-          .map(v -> mapViaCepToResponse(v, false))
-          .limit(Math.max(1, limit))
+      return results.stream()
+          .map(this::mapViaCepToResponse)
+          .limit(10) // Limita para não sobrecarregar
           .collect(Collectors.toList());
 
-      // Geocodificar APENAS o primeiro resultado (economia)
-      if (!responses.isEmpty()) {
-        enrichWithGoogleCoordinates(responses.get(0));
-      }
-
-      return orderByRelevance(responses, street, limit);
-
     } catch (ExternalServiceException e) {
-      return searchWithGoogle(street, city, uf, limit);
+      log.error("Error searching addresses: {}", e.getMessage());
+      throw e;
     }
   }
 
   /**
-   * 3. Busca genérica com Google Geocoding (fallback)
+   * Obtém latitude e longitude de um endereço usando Google Geocoding API.
+   * Usado ao cadastrar/atualizar contatos.
    */
-  private List<AddressResponse> searchWithGoogle(String query, String city, String uf, int limit) {
+  public AddressResponse geocodeAddress(String street, String number, String city, String state, String cep) {
+    String fullAddress = buildGoogleQuery(street, number, city, state, cep);
+
+    log.debug("Geocoding address: {}", fullAddress);
+
     try {
-      String googleQuery = buildGoogleQuery(uf, city, query);
-      Optional<GoogleGeocodingClient.Location> loc = googleGeocodingClient.geocode(googleQuery);
+      Optional<GoogleGeocodingClient.Location> location = googleGeocodingClient.geocode(fullAddress);
 
-      if (loc.isPresent()) {
-        AddressResponse response = AddressResponse.builder()
-            .cep(null)
-            .logradouro(query)
-            .complemento(null)
-            .bairro(null)
-            .localidade(city)
-            .uf(uf)
-            .latitude(loc.get().lat)
-            .longitude(loc.get().lng)
-            .source("google")
-            .exact(false)
-            .build();
-
-        response.setDisplay(buildDisplayText(response));
-        return List.of(response);
+      if (location.isEmpty()) {
+        throw new ExternalServiceException("Não foi possível obter as coordenadas do endereço");
       }
 
-      return List.of();
+      GoogleGeocodingClient.Location loc = location.get();
+
+      return AddressResponse.builder()
+          .cep(cep)
+          .logradouro(street)
+          .localidade(city)
+          .uf(state)
+          .latitude(loc.lat)
+          .longitude(loc.lng)
+          .source("google-geocoding")
+          .exact(true)
+          .build();
 
     } catch (ExternalServiceException e) {
-      return List.of();
+      log.error("Error geocoding address {}: {}", fullAddress, e.getMessage());
+      throw e;
     }
   }
 
-  private AddressResponse mapViaCepToResponse(ViaCepClient.ViaCepAddress v, boolean exact) {
-    AddressResponse response = AddressResponse.builder()
-        .cep(v.cep)
+  private AddressResponse mapViaCepToResponse(ViaCepClient.ViaCepAddress v) {
+    return AddressResponse.builder()
+        .cep(formatCep(v.cep))
         .logradouro(v.logradouro)
         .complemento(v.complemento)
         .bairro(v.bairro)
         .localidade(v.localidade)
         .uf(v.uf)
         .source("viacep")
-        .exact(exact)
+        .exact(true)
         .build();
-
-    response.setDisplay(buildDisplayText(response));
-    return response;
-  }
-
-  private void enrichWithGoogleCoordinates(AddressResponse response) {
-    if (response.getLatitude() != null)
-      return;
-
-    try {
-      String fullAddress = buildGoogleQuery(response.getUf(), response.getLocalidade(), response.getLogradouro());
-      Optional<GoogleGeocodingClient.Location> loc = googleGeocodingClient.geocode(fullAddress);
-
-      loc.ifPresent(l -> {
-        response.setLatitude(l.lat);
-        response.setLongitude(l.lng);
-        response.setSource("viacep+google");
-      });
-    } catch (ExternalServiceException ex) {
-      // Silently fail - coordinates are optional
-    }
-  }
-
-  private List<AddressResponse> orderByRelevance(List<AddressResponse> responses, String query, int limit) {
-    return responses.stream()
-        .sorted(Comparator
-            .comparing((AddressResponse a) -> exactMatchScore(a, query)).reversed()
-            .thenComparing(AddressResponse::getLocalidade)
-            .thenComparing(AddressResponse::getBairro, Comparator.nullsLast(String::compareToIgnoreCase)))
-        .limit(Math.max(1, limit))
-        .collect(Collectors.toList());
   }
 
   private boolean isCep(String text) {
     return text != null && CEP_PATTERN.matcher(text).matches();
-  }
-
-  private int exactMatchScore(AddressResponse a, String query) {
-    if (a.getLogradouro() == null || query == null)
-      return 0;
-    String l = a.getLogradouro().toLowerCase();
-    String q = query.toLowerCase();
-    if (l.equals(q))
-      return 100;
-    if (l.startsWith(q))
-      return 75;
-    if (l.contains(q))
-      return 50;
-    return 0;
   }
 
   private String sanitize(String s) {
@@ -199,52 +165,32 @@ public class AddressLookupService {
     return uf.trim().toUpperCase();
   }
 
-  private String buildGoogleQuery(String uf, String city, String street) {
+  private String buildGoogleQuery(String street, String number, String city, String state, String cep) {
     StringBuilder sb = new StringBuilder();
-    if (street != null)
+
+    if (StringUtils.hasLength(street)) {
       sb.append(street);
-    if (city != null)
-      sb.append(", ").append(city);
-    if (uf != null)
-      sb.append(", ").append(uf).append(", Brasil");
-    return sb.toString();
-  }
-
-  /**
-   * Formata endereço para exibição:
-   * "Rua das Flores - Centro, Curitiba - PR, 80000-000"
-   */
-  private String buildDisplayText(AddressResponse addr) {
-    StringBuilder sb = new StringBuilder();
-
-    if (StringUtils.hasLength(addr.getLogradouro())) {
-      sb.append(addr.getLogradouro());
     }
-
-    if (StringUtils.hasLength(addr.getBairro())) {
-      if (sb.length() > 0)
-        sb.append(" - ");
-      sb.append(addr.getBairro());
+    if (StringUtils.hasLength(number)) {
+      sb.append(", ").append(number);
     }
-
-    if (StringUtils.hasLength(addr.getLocalidade())) {
+    if (StringUtils.hasLength(city)) {
       if (sb.length() > 0)
         sb.append(", ");
-      sb.append(addr.getLocalidade());
+      sb.append(city);
     }
-
-    if (StringUtils.hasLength(addr.getUf())) {
-      if (sb.length() > 0)
-        sb.append(" - ");
-      sb.append(addr.getUf());
-    }
-
-    if (StringUtils.hasLength(addr.getCep())) {
+    if (StringUtils.hasLength(state)) {
       if (sb.length() > 0)
         sb.append(", ");
-      sb.append(formatCep(addr.getCep()));
+      sb.append(state);
+    }
+    if (StringUtils.hasLength(cep)) {
+      if (sb.length() > 0)
+        sb.append(", ");
+      sb.append(cep);
     }
 
+    sb.append(", Brasil");
     return sb.toString();
   }
 
@@ -253,4 +199,5 @@ public class AddressLookupService {
       return cep;
     return cep.substring(0, 5) + "-" + cep.substring(5);
   }
+
 }
