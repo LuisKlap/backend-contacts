@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.uex</groupId>
+    <groupId>com.dev</groupId>
     <artifactId>contacts</artifactId>
     <version>0.0.14-SNAPSHOT</version>
     <name>contacts</name>
-    <description>Contacts backend for UEX test</description>
+    <description>Contacts backend for dev test</description>
 
     <properties>
         <java.version>21</java.version>
