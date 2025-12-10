@@ -1217,14 +1217,6 @@ class PhoneUtilsTest {
 - Formatação para exibição
 - Integração com APIs externas (SMS, WhatsApp)
 
-### Boas Práticas
-
-1. **Armazenar sem formatação** - Facilita buscas e comparações
-2. **Formatar na exibição** - Melhor UX
-3. **Validar na entrada** - Previne dados inválidos
-4. **Usar constantes** - Evitar magic numbers
-5. **Logar validações** - Facilitar troubleshooting
-
 ---
 
 **Última atualização**: Dezembro 2025  
