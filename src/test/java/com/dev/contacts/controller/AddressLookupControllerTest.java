@@ -151,7 +151,7 @@ class AddressLookupControllerTest {
                 when(addressLookupService.searchByUfCityStreet("SP", "São Paulo", "Paulista"))
                                 .thenReturn(responses);
 
-                mockMvc.perform(get("/api/address/sear/*  */ch")
+                mockMvc.perform(get("/api/address/search")
                                 .param("uf", "SP")
                                 .param("city", "São Paulo")
                                 .param("street", "Paulista"))

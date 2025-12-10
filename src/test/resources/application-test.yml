@@ -14,6 +14,17 @@ spring:
         format_sql: true
   flyway:
     enabled: false
+  mail:
+    host: smtp.test.com
+    port: 587
+    username: test@test.com
+    password: testpass
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 jwt:
   secret: test-secret-key-for-unit-tests-only
@@ -21,3 +32,9 @@ jwt:
 
 address-lookup:
   api-url: http://localhost:8080/test
+
+address:
+  lookup:
+    viacep-base-url: https://viacep.com.br/ws
+    google-geocoding-url: https://maps.googleapis.com/maps/api/geocode/json
+    google-api-key: test-api-key

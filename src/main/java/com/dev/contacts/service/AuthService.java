@@ -3,6 +3,7 @@ package com.dev.contacts.service;
 import com.dev.contacts.dto.auth.AuthResponse;
 import com.dev.contacts.dto.auth.LoginRequest;
 import com.dev.contacts.dto.auth.SignupRequest;
+import com.dev.contacts.entity.RefreshToken;
 import com.dev.contacts.entity.User;
 import com.dev.contacts.exception.ConflictException;
 import com.dev.contacts.exception.InvalidCredentialsException;
@@ -24,6 +25,7 @@ public class AuthService {
   private final PasswordEncoder passwordEncoder;
   private final AuthenticationManager authenticationManager;
   private final JwtUtil jwtUtil;
+  private final RefreshTokenService refreshTokenService;
 
   public void signup(SignupRequest request) {
     if (userRepository.existsByEmail(request.email())) {
@@ -54,8 +56,13 @@ public class AuthService {
     User user = userRepository.findByEmail(request.email())
         .orElseThrow(() -> new InvalidCredentialsException("User not found after authentication"));
 
-    String token = jwtUtil.generateToken(user.getEmail());
-    return new AuthResponse(token, null);
+    String accessToken = jwtUtil.generateToken(user.getEmail());
+    RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+
+    return new AuthResponse(
+        accessToken,
+        refreshToken.getToken(),
+        jwtUtil.getExpirationMs() / 1000);
   }
 
   public boolean deleteAccount(Long userId, String rawPassword) {
@@ -68,5 +75,23 @@ public class AuthService {
 
     userRepository.delete(user);
     return true;
+  }
+
+  public AuthResponse refreshToken(String refreshTokenStr) {
+    RefreshToken refreshToken = refreshTokenService.validateRefreshToken(refreshTokenStr);
+    User user = refreshToken.getUser();
+
+    String newAccessToken = jwtUtil.generateToken(user.getEmail());
+
+    return new AuthResponse(
+        newAccessToken,
+        refreshTokenStr,
+        jwtUtil.getExpirationMs() / 1000);
+  }
+
+  public void logout(String refreshToken) {
+    if (refreshToken != null && !refreshToken.isBlank()) {
+      refreshTokenService.revokeRefreshToken(refreshToken);
+    }
   }
 }

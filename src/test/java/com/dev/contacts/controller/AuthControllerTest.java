@@ -128,8 +128,9 @@ class AuthControllerTest {
                                 "password123");
 
                 AuthResponse response = new AuthResponse(
-                                "jwt-token-here",
-                                3600000L);
+                                "jwt-access-token-here",
+                                "jwt-refresh-token-here",
+                                3600L);
 
                 when(authService.login(any(LoginRequest.class))).thenReturn(response);
 
@@ -138,9 +139,10 @@ class AuthControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.token").value("jwt-token-here"))
+                                .andExpect(jsonPath("$.accessToken").value("jwt-access-token-here"))
+                                .andExpect(jsonPath("$.refreshToken").value("jwt-refresh-token-here"))
                                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                                .andExpect(jsonPath("$.expiresIn").value(3600000));
+                                .andExpect(jsonPath("$.expiresIn").value(3600));
 
                 verify(authService, times(1)).login(any(LoginRequest.class));
         }

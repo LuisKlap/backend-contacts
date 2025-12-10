@@ -27,7 +27,8 @@ server:
 
 jwt:
   secret: "troque-por-um-secret-real"
-  expiration: 3600000
+  expiration: 3600000  # 1 hora em ms
+  refresh-expiration: 604800000  # 7 dias em ms
 
 cors:
   allowed-origins: "https://front-contacts.vercel.app,http://localhost:3000,http://localhost:4200"

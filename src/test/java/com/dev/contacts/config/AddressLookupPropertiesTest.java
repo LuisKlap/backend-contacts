@@ -2,11 +2,15 @@ package com.dev.contacts.config;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
+@ActiveProfiles("test")
+@Import(TestMailConfig.class)
 @TestPropertySource(properties = {
     "address.lookup.viacep-base-url=https://viacep.test.com.br/ws",
     "address.lookup.google-geocoding-url=https://maps.test.com/api/geocode/json",

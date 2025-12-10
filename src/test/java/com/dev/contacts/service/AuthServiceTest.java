@@ -4,6 +4,7 @@ import com.dev.contacts.config.JwtUtil;
 import com.dev.contacts.dto.auth.AuthResponse;
 import com.dev.contacts.dto.auth.LoginRequest;
 import com.dev.contacts.dto.auth.SignupRequest;
+import com.dev.contacts.entity.RefreshToken;
 import com.dev.contacts.entity.User;
 import com.dev.contacts.exception.ConflictException;
 import com.dev.contacts.exception.InvalidCredentialsException;
@@ -44,6 +45,9 @@ class AuthServiceTest {
 
   @Mock
   private JwtUtil jwtUtil;
+
+  @Mock
+  private RefreshTokenService refreshTokenService;
 
   @InjectMocks
   private AuthService authService;
@@ -96,20 +100,30 @@ class AuthServiceTest {
   @DisplayName("Deve fazer login com sucesso")
   void shouldLoginSuccessfully() {
     Authentication authentication = mock(Authentication.class);
+    RefreshToken refreshToken = RefreshToken.builder()
+        .token("refresh-token")
+        .user(user)
+        .build();
 
     when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
         .thenReturn(authentication);
     when(userRepository.findByEmail(loginRequest.email())).thenReturn(Optional.of(user));
-    when(jwtUtil.generateToken(user.getEmail())).thenReturn("jwt-token");
+    when(jwtUtil.generateToken(user.getEmail())).thenReturn("jwt-access-token");
+    when(jwtUtil.getExpirationMs()).thenReturn(3600000L);
+    when(refreshTokenService.createRefreshToken(user)).thenReturn(refreshToken);
 
     AuthResponse response = authService.login(loginRequest);
 
     assertThat(response).isNotNull();
-    assertThat(response.token()).isEqualTo("jwt-token");
+    assertThat(response.accessToken()).isEqualTo("jwt-access-token");
+    assertThat(response.refreshToken()).isEqualTo("refresh-token");
+    assertThat(response.tokenType()).isEqualTo("Bearer");
+    assertThat(response.expiresIn()).isEqualTo(3600L);
 
     verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
     verify(userRepository).findByEmail(loginRequest.email());
     verify(jwtUtil).generateToken(user.getEmail());
+    verify(refreshTokenService).createRefreshToken(user);
   }
 
   @Test
