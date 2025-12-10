@@ -33,6 +33,12 @@ jwt:
 cors:
   allowed-origins: "https://front-contacts.vercel.app,http://localhost:3000,http://localhost:4200"
 
+app:
+  frontend:
+    url: "http://localhost:3000"
+  password-reset:
+    token-expiration-minutes: 30
+
 springdoc:
   api-docs:
     path: /v3/api-docs
