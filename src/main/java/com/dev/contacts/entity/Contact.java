@@ -59,7 +59,7 @@ public class Contact {
   @Column(name = "longitude")
   private BigDecimal longitude;
 
-  @Column(name = "neighborhood", length = 100, nullable = false)
+  @Column(name = "neighborhood", length = 100)
   private String neighborhood;
 
   @CreationTimestamp
