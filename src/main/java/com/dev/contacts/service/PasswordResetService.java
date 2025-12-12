@@ -7,7 +7,6 @@ import com.dev.contacts.dto.auth.ResetPasswordResponse;
 import com.dev.contacts.entity.PasswordResetToken;
 import com.dev.contacts.entity.User;
 import com.dev.contacts.exception.BadRequestException;
-import com.dev.contacts.exception.ResourceNotFoundException;
 import com.dev.contacts.repository.PasswordResetTokenRepository;
 import com.dev.contacts.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,41 +31,55 @@ public class PasswordResetService {
   private final JavaMailSender mailSender;
   private final PasswordEncoder passwordEncoder;
 
-  @Value("${app.frontend.url:http://localhost:3000}")
+  @Value("${app.frontend.url:http://localhost:4200}")
   private String frontendUrl;
 
   @Value("${app.password-reset.token-expiration-minutes:30}")
   private int tokenExpirationMinutes;
 
+  @Value("${spring.mail.from:noreply@contatos.com}")
+  private String emailFrom;
+
   @Transactional
   public ForgotPasswordResponse requestPasswordReset(ForgotPasswordRequest request) {
-    User user = userRepository.findByEmail(request.email())
-        .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado com o email: " + request.email()));
+    var userOptional = userRepository.findByEmail(request.email());
 
-    // Invalidar tokens anteriores não usados
-    passwordResetTokenRepository.deleteUnusedTokensByUser(user);
+    if (userOptional.isPresent()) {
+      User user = userOptional.get();
 
-    // Gerar novo token
-    String token = UUID.randomUUID().toString();
-    OffsetDateTime expiresAt = OffsetDateTime.now().plusMinutes(tokenExpirationMinutes);
+      try {
+        // Invalidar tokens anteriores não usados
+        passwordResetTokenRepository.deleteUnusedTokensByUser(user);
 
-    PasswordResetToken resetToken = PasswordResetToken.builder()
-        .token(token)
-        .user(user)
-        .expiresAt(expiresAt)
-        .used(false)
-        .build();
+        // Gerar novo token
+        String token = UUID.randomUUID().toString();
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusMinutes(tokenExpirationMinutes);
 
-    passwordResetTokenRepository.save(resetToken);
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+            .token(token)
+            .user(user)
+            .expiresAt(expiresAt)
+            .used(false)
+            .build();
 
-    // Enviar email
-    sendPasswordResetEmail(user.getEmail(), user.getFullName(), token);
+        passwordResetTokenRepository.save(resetToken);
 
-    log.info("Password reset requested for user: {}", user.getEmail());
+        // Enviar email
+        sendPasswordResetEmail(user.getEmail(), user.getFullName(), token);
 
+        log.info("Password reset requested for user: {}", user.getEmail());
+      } catch (Exception e) {
+        log.error("Error processing password reset for existing user: {}", request.email(), e);
+        // Continua e retorna sucesso mesmo com erro interno
+      }
+    } else {
+      log.warn("Password reset requested for non-existent email: {}", request.email());
+      // Por segurança, não revela que o email não existe
+    }
+
+    // Sempre retorna sucesso para evitar enumeração de emails
     return ForgotPasswordResponse.builder()
-        .message("Email de recuperação de senha enviado com sucesso")
-        .email(user.getEmail())
+        .message("Se o email existir em nossa base, um link de recuperação será enviado")
         .build();
   }
 
@@ -100,7 +113,7 @@ public class PasswordResetService {
       String resetLink = frontendUrl + "/reset-password?token=" + token;
 
       SimpleMailMessage message = new SimpleMailMessage();
-      message.setFrom("noreply@contatos.com");
+      message.setFrom(emailFrom);
       message.setTo(toEmail);
       message.setSubject("Recuperação de Senha - Sistema de Contatos");
       message.setText(String.format(
@@ -129,7 +142,7 @@ public class PasswordResetService {
 
     } catch (Exception e) {
       log.error("Failed to send password reset email to: {}", toEmail, e);
-      throw new RuntimeException("Falha ao enviar email de recuperação de senha", e);
+      // Não lança exceção - falha silenciosa para não revelar informações
     }
   }
 

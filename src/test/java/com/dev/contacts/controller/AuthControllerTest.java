@@ -55,7 +55,7 @@ class AuthControllerTest {
                                 .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
-                                .andExpect(status().isOk());
+                                .andExpect(status().isCreated());
 
                 verify(authService, times(1)).signup(any(SignupRequest.class));
         }
@@ -196,17 +196,24 @@ class AuthControllerTest {
         }
 
         @Test
-        @DisplayName("POST /api/auth/login - Deve retornar erro quando senha é muito curta")
-        void shouldReturnErrorWhenLoginPasswordIsTooShort() throws Exception {
+        @DisplayName("POST /api/auth/login - Deve aceitar qualquer tamanho de senha")
+        void shouldAcceptAnyPasswordLengthOnLogin() throws Exception {
                 LoginRequest request = new LoginRequest(
                                 "john@example.com",
                                 "12345");
+
+                AuthResponse response = new AuthResponse(
+                                "jwt-access-token-here",
+                                "jwt-refresh-token-here",
+                                3600L);
+
+                when(authService.login(any(LoginRequest.class))).thenReturn(response);
 
                 mockMvc.perform(post("/api/auth/login")
                                 .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(request)))
-                                .andExpect(status().isBadRequest());
+                                .andExpect(status().isOk());
         }
 
         @Test

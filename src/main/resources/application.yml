@@ -22,6 +22,24 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+  # Configuração de Email (SMTP)
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    from: ${MAIL_FROM:noreply@contatos.com}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
 server:
   port: 8080
 
@@ -35,9 +53,11 @@ cors:
 
 app:
   frontend:
-    url: "http://localhost:3000"
+    url: ${FRONTEND_URL:http://localhost:3000}
   password-reset:
-    token-expiration-minutes: 30
+    token-expiration-minutes: ${PASSWORD_RESET_EXPIRATION:30}
+  scheduling:
+    cleanup-expired-tokens: ${CLEANUP_CRON:0 0 2 * * *}  # Diariamente às 2h
 
 springdoc:
   api-docs:

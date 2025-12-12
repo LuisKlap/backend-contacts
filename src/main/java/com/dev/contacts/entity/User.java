@@ -45,6 +45,27 @@ public class User implements UserDetails {
   @Builder.Default
   private Set<Contact> contacts = new HashSet<>();
 
+  // --- 2FA ---
+  @Column(name = "two_factor_enabled", nullable = false)
+  @Builder.Default
+  private boolean twoFactorEnabled = false;
+
+  @Column(name = "two_factor_secret", length = 64)
+  private String twoFactorSecret;
+
+  @Column(name = "two_factor_last_sent")
+  private OffsetDateTime twoFactorLastSent;
+
+  @Column(name = "two_factor_temp_code", length = 8)
+  private String twoFactorTempCode;
+
+  @Column(name = "two_factor_temp_code_expiry")
+  private OffsetDateTime twoFactorTempCodeExpiry;
+
+  @Column(name = "two_factor_type", length = 16)
+  @Builder.Default
+  private String twoFactorType = "email"; // "email" ou "authenticator"
+
   public void addContact(Contact contact) {
     contacts.add(contact);
     contact.setOwner(this);

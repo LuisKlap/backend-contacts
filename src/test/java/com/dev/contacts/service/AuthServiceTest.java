@@ -8,6 +8,7 @@ import com.dev.contacts.entity.RefreshToken;
 import com.dev.contacts.entity.User;
 import com.dev.contacts.exception.ConflictException;
 import com.dev.contacts.exception.InvalidCredentialsException;
+import com.dev.contacts.exception.ResourceNotFoundException;
 import com.dev.contacts.repository.UserRepository;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -90,7 +91,7 @@ class AuthServiceTest {
 
     assertThatThrownBy(() -> authService.signup(signupRequest))
         .isInstanceOf(ConflictException.class)
-        .hasMessage("Email already in use");
+        .hasMessage("Email já está em uso");
 
     verify(userRepository).existsByEmail(signupRequest.email());
     verify(userRepository, never()).save(any(User.class));
@@ -130,11 +131,11 @@ class AuthServiceTest {
   @DisplayName("Deve lançar exceção ao fazer login com credenciais inválidas")
   void shouldThrowExceptionWhenLoginWithInvalidCredentials() {
     when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-        .thenThrow(new RuntimeException("Bad credentials"));
+        .thenThrow(new org.springframework.security.authentication.BadCredentialsException("Bad credentials"));
 
     assertThatThrownBy(() -> authService.login(loginRequest))
         .isInstanceOf(InvalidCredentialsException.class)
-        .hasMessage("Invalid email or password");
+        .hasMessage("Email ou senha inválidos");
 
     verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
     verify(userRepository, never()).findByEmail(anyString());
@@ -151,36 +152,36 @@ class AuthServiceTest {
 
     assertThatThrownBy(() -> authService.login(loginRequest))
         .isInstanceOf(InvalidCredentialsException.class)
-        .hasMessage("User not found after authentication");
+        .hasMessage("Usuário não encontrado após autenticação");
 
     verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
     verify(userRepository).findByEmail(loginRequest.email());
   }
 
   @Test
-  @DisplayName("Deve deletar conta com sucesso")
-  void shouldDeleteAccountSuccessfully() {
+  @DisplayName("Deve deletar conta com senha válida")
+  @SuppressWarnings("deprecation")
+  void shouldDeleteAccountWithValidPassword() {
     String rawPassword = "password123";
 
     when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
-    when(passwordEncoder.matches(rawPassword, user.getPassword())).thenReturn(true);
+    when(passwordEncoder.matches(rawPassword, user.getPasswordHash())).thenReturn(true);
 
-    boolean result = authService.deleteAccount(user.getId(), rawPassword);
+    authService.deleteAccount(user.getId(), rawPassword);
 
-    assertThat(result).isTrue();
     verify(userRepository).findById(user.getId());
-    verify(passwordEncoder).matches(rawPassword, user.getPassword());
+    verify(passwordEncoder).matches(rawPassword, user.getPasswordHash());
     verify(userRepository).delete(user);
   }
 
   @Test
   @DisplayName("Deve lançar exceção ao tentar deletar conta com usuário não encontrado")
+  @SuppressWarnings("deprecation")
   void shouldThrowExceptionWhenDeletingAccountWithUserNotFound() {
     when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> authService.deleteAccount(999L, "password123"))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("User not found");
+        .isInstanceOf(ResourceNotFoundException.class);
 
     verify(userRepository).findById(999L);
     verify(userRepository, never()).delete(any(User.class));
@@ -188,15 +189,15 @@ class AuthServiceTest {
 
   @Test
   @DisplayName("Deve lançar exceção ao tentar deletar conta com senha inválida")
+  @SuppressWarnings("deprecation")
   void shouldThrowExceptionWhenDeletingAccountWithInvalidPassword() {
     String rawPassword = "wrongPassword";
 
     when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
-    when(passwordEncoder.matches(rawPassword, user.getPassword())).thenReturn(false);
+    when(passwordEncoder.matches(rawPassword, user.getPasswordHash())).thenReturn(false);
 
     assertThatThrownBy(() -> authService.deleteAccount(user.getId(), rawPassword))
-        .isInstanceOf(InvalidCredentialsException.class)
-        .hasMessage("Invalid password");
+        .isInstanceOf(InvalidCredentialsException.class);
 
     verify(userRepository).findById(user.getId());
     verify(passwordEncoder).matches(rawPassword, user.getPassword());
