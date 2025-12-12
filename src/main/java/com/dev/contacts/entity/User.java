@@ -24,6 +24,10 @@ public class User implements UserDetails {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  @Column(name = "email_verified", nullable = false)
+  @Builder.Default
+  private boolean emailVerified = false;
+
   @Column(name = "full_name", length = 150, nullable = false)
   private String fullName;
 

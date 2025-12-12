@@ -13,7 +13,7 @@
 
     <groupId>com.dev</groupId>
     <artifactId>contacts</artifactId>
-    <version>0.1.02-SNAPSHOT</version>
+    <version>0.1.05-SNAPSHOT</version>
     <name>contacts</name>
     <description>Contacts backend for dev test</description>
 
@@ -142,6 +142,24 @@
             <artifactId>spring-boot-devtools</artifactId>
             <scope>runtime</scope>
             <optional>true</optional>
+        </dependency>
+
+        <!-- Google Authenticator server library -->
+        <dependency>
+            <groupId>com.warrenstrange</groupId>
+            <artifactId>googleauth</artifactId>
+            <version>1.5.0</version>
+        </dependency>
+        <!-- ZXing para QR code -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.1</version>
         </dependency>
     </dependencies>
 

@@ -20,8 +20,7 @@ public class EmailService {
       message.setFrom("noreply@contatos.com");
       message.setTo(request.getTo());
       message.setSubject(request.getSubject());
-      message.setText(
-          "Esta é uma mensagem de teste hardcoded do sistema de contatos.\n\nEste email foi enviado automaticamente.");
+      message.setText(request.getBody());
 
       mailSender.send(message);
 

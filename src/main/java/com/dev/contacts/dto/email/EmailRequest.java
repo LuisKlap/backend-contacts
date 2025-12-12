@@ -18,4 +18,7 @@ public class EmailRequest {
 
   @NotBlank(message = "Subject is required")
   private String subject;
+
+  @NotBlank(message = "Body is required")
+  private String body;
 }

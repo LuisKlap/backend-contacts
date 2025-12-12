@@ -46,7 +46,7 @@ public class AuthService {
    * @throws ConflictException se o email já estiver em uso
    */
   @Transactional
-  public void signup(SignupRequest request) {
+  public User signup(SignupRequest request) {
     log.debug("Attempting to register new user with email: {}", request.email());
 
     if (userRepository.existsByEmail(request.email())) {
@@ -58,11 +58,13 @@ public class AuthService {
         .fullName(request.fullName())
         .email(request.email())
         .passwordHash(passwordEncoder.encode(request.password()))
+        .emailVerified(false)
         .build();
 
-    userRepository.save(user);
+    user = userRepository.save(user);
 
     log.info("User registered successfully: {}", request.email());
+    return user;
   }
 
   /**
