@@ -38,6 +38,9 @@ class AuthControllerTest {
         @MockitoBean
         private AuthService authService;
 
+        @MockitoBean
+        private com.dev.contacts.service.PasswordResetService passwordResetService;
+
         @Test
         @DisplayName("POST /api/auth/signup - Deve criar usuário com sucesso")
         void shouldSignupSuccessfully() throws Exception {
